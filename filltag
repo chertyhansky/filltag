@@ -1,0 +1,429 @@
+#!/bin/zsh
+
+#commandline options {{{
+while getopts "RrOST:An:N:a:b:y:g:t:ih" Option
+do
+	case $Option in
+		R) RECODEONLY=1;; # only recode tags from cp1251 to utf-8
+		r) RENAME=1;; # also rename files as $num - $title
+		O) RENAMEONLY=1;; # only rename files
+		S) TRANSLITONLY=1;; # only transliterate ID3 tags (now works with mp3 only)
+		T) _template=$OPTARG;;
+		A) ASKTITLE=1;; # ask for title for each file
+		n) _num=$OPTARG;; # number of file
+		N) _totnum=$OPTARG;; # total number of files
+		a) _artist=$OPTARG;;
+		b) _album=$OPTARG;;
+		y) _year=$OPTARG;;
+		g) _genre=$OPTARG;;
+		t) _title=$OPTARG;;
+		i) SHOWINFO=1;; # only show existing tags
+		h) # help message {{{
+echo -e "NAME
+
+	$(basename $0) - tool for read/write tags and rename flac, ogg and mp3 files.
+
+SYNOPSIS
+
+	- Show tags:
+	$(basename $0) -i file1 [file2 file3 ...]
+
+	- Fill tags:
+	$(basename $0) [-a 'Artist'] [-b 'Album'] [-y year] [-g genre] [-n track number] [-N total tracks] [-t 'Song title'|-A] file1 [file2 file3 ...]
+
+	- Recode tags:
+	$(basename $0) -R file1 [file2 file3 ...]
+
+	- Rename files:
+	$(basename $0) -r [-T 'template'] file 1 [file 2 file 3 ...]
+
+OPTIONS
+
+-i
+	Show tags.
+
+-a 'Artist'
+-b 'Album'
+-y year
+-g 'Genre'
+-t 'Song title'
+	Fill the apropriate fields. If more then wone file specified, the
+	same tags will be written to all these files.
+
+-A
+	Ask the song title for each file.
+
+-n number
+	Track number. If more then one file specified, number will growing
+	up by 1 for each file. If not specified, files will be numbered
+	from 1 in sort order.
+
+-N number
+	Total tracks number. If not specified, number of files will be
+	written.
+
+-O
+	Only rename files, do not fill empty tags.
+
+-R
+	Recode tags from CP1251 to utf-8.
+
+-S
+	Transliterate tags (only works with MP3 and UTF-8 tags)
+
+-r
+	Rename files (filling empty tags).
+
+-T 'template'
+	Template for renaming files. Contains:
+		\$num - number of files;
+		\$totnum - total number of files;
+		\$artist - artist;
+		\$album - album;
+		\$genre - genre;
+		\$year - year;
+		\$title - song title.
+	If template not specified, then used '\$num - \$title'.
+
+-h
+	Show this help message.
+
+EXAMPLES
+	- fill tags of mp3 files and rename it:
+	$(basename $0) -rA -a 'Behemoth' -b 'Grom' -y 1996 -g 'Black Metal' *.mp3
+
+	- rename files with template:
+	$(basename $0) -r -T '\$num - \$artist - \$title (\$album, \$year)' *
+	
+AUTHOR
+	Akaky Chertyhansky (akakychert@gmail.com) " # | $PAGER
+exit 0
+#}}}
+		;;
+
+	esac
+done
+shift $(($OPTIND - 1)) #}}}
+
+files=($*)
+if [[ -z $files ]]
+then
+	echo "Nothing to do. Exiting..."
+	exit 1
+fi
+
+# if $_totnum is specified, use it. else use number of arguments
+if [[ -n $_totnum ]]
+then totnum=$_totnum
+else totnum=$#
+fi
+# BUG! If unsupported file specified, it will be counted too.
+
+filltag() {
+	# if $_num is specified, use it, else use 1.
+	if [[ -n $_num ]]
+	then num=$_num
+	else num=1
+	fi
+	
+	for i in $files
+	do
+		case $i in
+		*.mp3|*.MP3|*.Mp3)
+			fmt=mp3
+			TITLE=$(mid3v2 $i)
+			# first, read tags from commandline if specified
+			[[ -n $_artist ]] && artist=$_artist
+			[[ -n $_album ]] && album=$_album
+			[[ -n $_year ]] && year=$_year
+			[[ -n $_genre ]] && genre=$_genre
+			[[ -n $_title ]] && title=$_title
+			# second, read existing titles
+			[[ -z $artist ]] && artist=$(echo $TITLE | grep -ae '^TPE1' | cut -d '=' -f 2)
+			[[ -z $album ]] && album=$(echo $TITLE | grep -ae '^TALB' | cut -d '=' -f 2)
+			[[ -z $year ]] && year=$(echo $TITLE | grep -ae '^TDRC' | cut -d '=' -f 2)
+			[[ -z $genre ]] && genre=$(echo $TITLE | grep -ae '^TCON' | cut -d '=' -f 2)
+			[[ -z $title ]] && title=$(echo $TITLE | grep -ae '^TIT2' | cut -d '=' -f 2)
+			# third, if none, then use 'Unknown'
+			[[ -z $artist ]] && artist="Unknown"
+			[[ -z $album ]] && album="Unknown"
+			[[ -z $year ]] && year="666"
+			[[ -z $genre ]] && genre="Unknown"
+			[[ -z $title ]] && title="Track $(printf %.2d $num)"
+
+			# if option -A is used, ask for song title.
+			if [[ $ASKTITLE -eq 1 ]]
+			then
+				echo -n "$num/$totnum: Song title for $i [$title]: "
+				read asktitle
+				[[ -n $asktitle ]] && title="$asktitle"
+			fi
+
+			# write tags
+			mid3v2 -a "$artist" -A "$album" -y "$year" -g "$genre" -t "$title" -T$(printf "%.2d" $num)/$(printf "%.2d" $totnum) "$i" 1>/dev/null &
+			;;
+
+		*.ogg|*.OGG|*.Ogg)
+			fmt=ogg
+			TITLE=$(vorbiscomment -l $i)
+			# read existing song title
+			# first, read tags from commandline if specified
+			[[ -n $_artist ]] && artist=$_artist
+			[[ -n $_album ]] && album=$_album
+			[[ -n $_year ]] && year=$_year
+			[[ -n $_genre ]] && genre=$_genre
+			[[ -n $_title ]] && title=$_title
+			# second, read existing titles
+			[[ -z $artist ]] && artist=$(echo $TITLE | grep -aie '^artist' | cut -d '=' -f 2)
+			[[ -z $album ]] && album=$(echo $TITLE | grep -aie '^album' | cut -d '=' -f 2)
+			[[ -z $year ]] && year=$(echo $TITLE | grep -aie '^date' | cut -d '=' -f 2)
+			[[ -z $genre ]] && genre=$(echo $TITLE | grep -aie '^genre' | cut -d '=' -f 2)
+			[[ -z $title ]] && title=$(echo $TITLE | grep -aie '^title' | cut -d '=' -f 2)
+			# third, if none, then use 'Unknown'
+			[[ -z $artist ]] && artist="Unknown"
+			[[ -z $album ]] && album="Unknown"
+			[[ -z $year ]] && year="666"
+			[[ -z $genre ]] && genre="Unknown"
+			[[ -z $title ]] && title="Track $(printf %.2d $num)"
+
+			# if option -A is used, ask for song title.
+			if [[ $ASKTITLE -eq 1 ]]
+			then
+				echo -n "$num/$totnum: Song title for $i [$title]: "
+				read asktitle
+				[[ -n $asktitle ]] && title="$asktitle"
+			fi
+
+			# write tags
+			vorbiscomment -w "$i" -t ARTIST="$artist" -t ALBUM="$album" -t DATE="$year" -t GENRE="$genre" -t TRACKNUMBER=$(printf %.2d $num) -t TRACKTOTAL=$(printf %.2d $totnum) -t TITLE="$title" 1>/dev/null &
+			;;
+
+		*.flac|*.FLAC|*.Flac)
+			fmt=flac
+			TITLE=$(metaflac $i --export-tags-to=-)
+			# first, read tags from commandline if specified
+			[[ -n $_artist ]] && artist=$_artist
+			[[ -n $_album ]] && album=$_album
+			[[ -n $_year ]] && year=$_year
+			[[ -n $_genre ]] && genre=$_genre
+			[[ -n $_title ]] && title=$_title
+			# second, read existing titles
+			[[ -z $artist ]] && artist=$(echo $TITLE | grep -aie '^artist' | cut -d '=' -f 2)
+			[[ -z $album ]] && album=$(echo $TITLE | grep -aie '^album' | cut -d '=' -f 2)
+			[[ -z $year ]] && year=$(echo $TITLE | grep -aie '^date' | cut -d '=' -f 2)
+			[[ -z $genre ]] && genre=$(echo $TITLE | grep -aie '^genre' | cut -d '=' -f 2)
+			[[ -z $title ]] && title=$(echo $TITLE | grep -aie '^title' | cut -d '=' -f 2)
+			# if none, then use 'Unknown'
+			[[ -z $artist ]] && artist="Unknown"
+			[[ -z $album ]] && album="Unknown"
+			[[ -z $year ]] && year="666"
+			[[ -z $genre ]] && genre="Unknown"
+			[[ -z $title ]] && title="Track $(printf %.2d $num)"
+
+			# if option -A is used, ask for song title.
+			if [[ $ASKTITLE -eq 1 ]]
+			then
+				echo -n "$num/$totnum: Song title for $i [$title]: "
+				read asktitle
+				[[ -n $asktitle ]] && title="$asktitle"
+			fi
+
+			# write tags
+			metaflac "$i" --remove-tag=ARTIST --remove-tag=ALBUM --remove-tag=DATE --remove-tag=GENRE --remove-tag=TRACKNUMBER --remove-tag=TRACKTOTAL --remove-tag=TITLE 1>/dev/null 
+			metaflac "$i" --set-tag=ARTIST="$artist" --set-tag=ALBUM="$album" --set-tag=DATE="$year" --set-tag=GENRE="$genre" --set-tag=TRACKNUMBER=$(printf %.2d $num) --set-tag=TRACKTOTAL=$(printf %.2d $totnum) --set-tag=TITLE="$title" 1>/dev/null &
+			;;
+		*)
+			echo "Unknown file type: $i"
+			;;
+		esac
+
+		if [[ $RENAME -eq 1 ]] && [[ -n $fmt ]]
+		then
+			if [[ -n $_template ]]
+			then
+				# replace $num with $(printf %.02d $num) and all special symbols with "_"
+				template=$(echo $_template | sed -e 's/\$num/\$(printf %\.02d \$num)/g' -e 's/\$totnum/\$(printf %\.02d \$totnum)/g')
+				template=$(eval echo $template | sed -e "s/[@#$%^&?*=\`\'\"\/\|\\ ]/_/g" -e "s/:/./g")
+			else
+				# template is just $num-$title
+				template="$(printf %.02d $num)-$(echo $title | sed -e "s/[@#$%^&?*=\`\'\"\/\|\\ ]/_/g" -e "s/:/./g")"
+			fi
+			mv "$i" "$(dirname $i)/$template.$fmt"
+		fi
+
+		let "num += 1"
+		# null variables for use with next file
+		title=
+		artist=
+		album=
+		year=
+		genre=
+		fmt=
+	done
+}
+
+renameonly() {
+	for i in $files
+	do
+		case $i in
+		*.mp3|*.MP3|*.Mp3)
+			fmt=mp3
+			TITLE=$(mid3v2 $i)
+			artist=$(echo $TITLE | grep -ae '^TPE1' | cut -d '=' -f 2)
+			album=$(echo $TITLE | grep -ae '^TALB' | cut -d '=' -f 2)
+			year=$(echo $TITLE | grep -ae '^TDRC' | cut -d '=' -f 2)
+			genre=$(echo $TITLE | grep -ae '^TCON' | cut -d '=' -f 2)
+			num=$(echo $TITLE | grep -ae '^TRCK' | cut -d '=' -f 2 | cut -d '/' -f 1)
+			title=$(echo $TITLE | grep -ae '^TIT2' | cut -d '=' -f 2)
+		;;
+
+		*.ogg|*.OGG|*.Ogg)
+			fmt=ogg
+			TITLE=$(vorbiscomment -l $i)
+			artist=$(echo $TITLE | grep -aie '^ARTIST' | cut -d '=' -f 2)
+			album=$(echo $TITLE | grep -aie '^ALBUM' | cut -d '=' -f 2)
+			year=$(echo $TITLE | grep -aie '^DATE' | cut -d '=' -f 2)
+			genre=$(echo $TITLE | grep -aie '^GENRE' | cut -d '=' -f 2)
+			num=$(echo $TITLE | grep -aie '^TRACKNUMBER' | cut -d '=' -f 2 | cut -d '/' -f 1)
+			title=$(echo $TITLE | grep -aie '^TITLE' | cut -d '=' -f 2)
+		;;
+
+		*.flac|*.FLAC|*.Flac)
+			fmt=flac
+			TITLE=$(metaflac $i --export-tags-to=-)
+			artist=$(echo $TITLE | grep -aie '^ARTIST' | cut -d '=' -f 2)
+			album=$(echo $TITLE | grep -aie '^ALBUM' | cut -d '=' -f 2)
+			year=$(echo $TITLE | grep -aie '^DATE' | cut -d '=' -f 2)
+			genre=$(echo $TITLE | grep -aie '^GENRE' | cut -d '=' -f 2)
+			num=$(echo $TITLE | grep -aie '^TRACKNUMBER' | cut -d '=' -f 2 | cut -d '/' -f 1)
+			title=$(echo $TITLE | grep -aie '^TITLE' | cut -d '=' -f 2)
+		;;
+		*)
+			echo "Unknown file type: $i"
+		;;
+		esac
+		if [[ -n $_template ]]
+		then
+			# replace $num with $(printf %.02d $num) and all special symbols with "_"
+			template=$(echo $_template | sed -e 's/\$num/\$(printf %\.02d \$num)/g' -e 's/\$totnum/\$(printf %\.02d \$totnum)/g')
+			template=$(eval echo $template | sed -e "s/[@#$%^&?*=\`\'\"\/\|\\ ]/_/g" -e "s/:/./g")
+		else
+			# template is just $num-$title
+			template="$(printf %.02d $num)-$(echo $title | sed -e "s/[@#$%^&?*=\`\'\"\/\|\\ ]/_/g" -e "s/:/./g")"
+		fi
+		mv "$i" "$(dirname $i)/$template.$fmt"
+	done
+	exit 0
+}
+
+
+
+recode() {
+	for i in $files
+	do
+		case $i in
+			*.mp3|*.MP3|*.Mp3)
+				mid3iconv -eCP1251 --remove-v1 "$i"
+			;;
+			*)
+				echo "$i is not an mp3 file"
+			;;
+		esac
+	done
+	exit 0
+}
+
+translitonly() {
+	for i in $files
+	do
+
+	if [[ -n $_num ]]
+	then num=$_num
+	else num=1
+	fi
+
+		case $i in
+			*.mp3|*.MP3|*.Mp3)
+				TITLE=$(mid3v2 $i)
+				artist=$(echo $TITLE | grep -ae '^TPE1' | cut -d '=' -f 2 | iconv -f UTF-8 -t KOI-7)
+				album=$(echo $TITLE | grep -ae '^TALB' | cut -d '=' -f 2 | iconv -f UTF-8 -t KOI-7)
+				year=$(echo $TITLE | grep -ae '^TDRC' | cut -d '=' -f 2 | iconv -f UTF-8 -t KOI-7)
+				genre=$(echo $TITLE | grep -ae '^TCON' | cut -d '=' -f 2 | iconv -f UTF-8 -t KOI-7)
+				num=$(echo $TITLE | grep -ae '^TRCK' | cut -d '=' -f 2 | cut -d '/' -f 1 | iconv -f UTF-8 -t KOI-7)
+				title=$(echo $TITLE | grep -ae '^TIT2' | cut -d '=' -f 2 | iconv -f UTF-8 -t KOI-7)
+				mid3v2 -a "$artist" -A "$album" -y "$year" -g "$genre" -t "$title" -T$(printf "%.2d" $num)/$(printf "%.2d" $totnum) "$i" 1>/dev/null
+				;;
+			*)
+				echo "$i is not an mp3 file, not supported yet"
+				;;
+		esac
+
+		let "num += 1"
+		# null variables for use with next file
+		title=
+		artist=
+		album=
+		year=
+		genre=
+		fmt=
+	done
+	exit 0
+}
+
+showinfo() {
+	echo "№: <Artist> {Album} (Year) [Genre] Title"
+	echo "----------------------------------------"
+	for i in $files
+	do
+		case $i in
+		*.mp3|*.MP3|*.Mp3)
+			TITLE=$(mid3v2 $i)
+			artist=$(echo $TITLE | grep -ae '^TPE1' | cut -d '=' -f 2)
+			album=$(echo $TITLE | grep -ae '^TALB' | cut -d '=' -f 2)
+			year=$(echo $TITLE | grep -ae '^TDRC' | cut -d '=' -f 2)
+			genre=$(echo $TITLE | grep -ae '^TCON' | cut -d '=' -f 2)
+			num=$(echo $TITLE | grep -ae '^TRCK' | cut -d '=' -f 2)
+			title=$(echo $TITLE | grep -ae '^TIT2' | cut -d '=' -f 2)
+		echo "$num: <$artist> {$album} ($year) [$genre] $title"
+
+		;;
+
+		*.ogg|*.OGG|*.Ogg)
+			TITLE=$(vorbiscomment -l $i)
+			artist=$(echo $TITLE | grep -aie '^ARTIST' | cut -d '=' -f 2)
+			album=$(echo $TITLE | grep -aie '^ALBUM' | cut -d '=' -f 2)
+			year=$(echo $TITLE | grep -aie '^DATE' | cut -d '=' -f 2)
+			genre=$(echo $TITLE | grep -aie '^GENRE' | cut -d '=' -f 2)
+			num="$(echo $TITLE | grep -aie '^TRACKNUMBER' | cut -d '=' -f 2)/$(echo $TITLE | grep -aie '^TRACKTOTAL' | cut -d '=' -f 2)"
+			title=$(echo $TITLE | grep -aie '^TITLE' | cut -d '=' -f 2)
+		echo "$num: <$artist> {$album} ($year) [$genre] $title"
+		;;
+
+		*.flac|*.FLAC|*.Flac)
+			TITLE=$(metaflac $i --export-tags-to=-)
+			artist=$(echo $TITLE | grep -aie '^ARTIST' | cut -d '=' -f 2)
+			album=$(echo $TITLE | grep -aie '^ALBUM' | cut -d '=' -f 2)
+			year=$(echo $TITLE | grep -aie '^DATE' | cut -d '=' -f 2)
+			genre=$(echo $TITLE | grep -aie '^GENRE' | cut -d '=' -f 2)
+			num="$(echo $TITLE | grep -aie '^TRACKNUMBER' | cut -d '=' -f 2)/$(echo $TITLE | grep -aie '^TRACKTOTAL' | cut -d '=' -f 2)"
+			title=$(echo $TITLE | grep -aie '^TITLE' | cut -d '=' -f 2)
+		echo "$num: <$artist> [$album] ($year) {$genre} $title"
+		;;
+		*)
+			echo "Unknown file type: $i"
+		;;
+		esac
+	done
+	exit 0
+}
+
+[[ $RENAMEONLY -eq 1 ]] && renameonly
+[[ $RECODEONLY -eq 1 ]] && recode
+[[ $SHOWINFO -eq 1 ]] && showinfo
+[[ $TRANSLITONLY -eq 1 ]] && translitonly
+
+filltag
+
+exit 0
+
+# vim: set ft=sh:
