@@ -85,6 +85,11 @@ filltag -rA -a 'Behemoth' -b 'Grom' -y 1996 -g 'Black Metal' *.mp3
 ```sh
 filltag -r -T '\$num - \$artist - \$title (\$album, \$year)' *
 ```
+
+## DEPENDENCIES
+- mid3v2 (from python-mutagen package) for mp3 files
+- vorbiscomment (from vorbis-tools package) for ogg files
+- metaflac (from flac package) for flac files
 	
 ## AUTHOR
 	[Akaky Chertyhansky](akakychert@gmail.com)
