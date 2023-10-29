@@ -92,4 +92,4 @@ filltag -r -T '\$num - \$artist - \$title (\$album, \$year)' *
 - metaflac (from flac package) for flac files
 	
 ## AUTHOR
-	[Akaky Chertyhansky](akakychert@gmail.com)
+Karnaukhov P.N. aka Akaky Chertyhansky (akakychert@gmail.com)
