@@ -1,20 +1,28 @@
 ## NAME
 
-	filltag - tool for read/write tags and rename flac, ogg and mp3 files.
+filltag - tool for read/write tags and rename flac, ogg and mp3 files.
 
 ## SYNOPSIS
 
-	- Show tags:
-	```filltag -i file1 [file2 file3 ...]```
+- Show tags:
+```sh
+filltag -i file1 [file2 file3 ...]
+```
 
-	- Fill tags:
-	```filltag [-a 'Artist'] [-b 'Album'] [-y year] [-g genre] [-n track number] [-N total tracks] [-t 'Song title'|-A] file1 [file2 file3 ...]```
+- Fill tags:
+```sh
+filltag [-a 'Artist'] [-b 'Album'] [-y year] [-g genre] [-n track number] [-N total tracks] [-t 'Song title'|-A] file1 [file2 file3 ...]
+```
 
-	- Recode tags:
-	```filltag -R file1 [file2 file3 ...]```
+- Recode tags:
+```sh
+filltag -R file1 [file2 file3 ...]
+```
 
-	- Rename files:
-	```filltag -r [-T 'template'] file 1 [file 2 file 3 ...]```
+- Rename files:
+```sh
+filltag -r [-T 'template'] file 1 [file 2 file 3 ...]
+```
 
 ## OPTIONS
 
@@ -68,11 +76,15 @@
 	Show this help message.
 
 ## EXAMPLES
-	- fill tags of mp3 files and rename it:
-	```filltag -rA -a 'Behemoth' -b 'Grom' -y 1996 -g 'Black Metal' *.mp3```
+- fill tags of mp3 files and rename it:
+```sh
+filltag -rA -a 'Behemoth' -b 'Grom' -y 1996 -g 'Black Metal' *.mp3
+```
 
-	- rename files with template:
-	```filltag -r -T '\$num - \$artist - \$title (\$album, \$year)' *```
+- rename files with template:
+```sh
+filltag -r -T '\$num - \$artist - \$title (\$album, \$year)' *
+```
 	
 ## AUTHOR
 	[Akaky Chertyhansky](akakychert@gmail.com)
