@@ -1,4 +1,4 @@
-[![Bash](https://img.shields.io/badge/Shell-464646?style=flat-square&logo=zsh)](https://git.savannah.gnu.org/cgit/bash.git)
+[![Bash](https://img.shields.io/badge/Shell-464646?logo=zsh)](https://git.savannah.gnu.org/cgit/bash.git)
 
 ## NAME
 
