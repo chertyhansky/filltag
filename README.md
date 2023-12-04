@@ -95,3 +95,6 @@ filltag -r -T '\$num - \$artist - \$title (\$album, \$year)' *
 	
 ## AUTHOR
 Karnaukhov P.N. aka Akaky Chertyhansky (akakychert@gmail.com)
+
+## LICENSE
+GNU General Public License v3.0 or later
