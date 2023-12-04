@@ -1,3 +1,7 @@
+# filltag
+
+[![Bash](https://img.shields.io/badge/Shell-464646?style=flat-square&logo=zsh)](https://git.savannah.gnu.org/cgit/bash.git)
+
 ## NAME
 
 filltag - tool for read/write tags and rename flac, ogg and mp3 files.
