@@ -1,24 +1,6 @@
 #!/bin/zsh
 
-#commandline options {{{
-while getopts "RrOST:An:N:a:b:y:g:t:ih" Option
-do
-	case $Option in
-		R) RECODEONLY=1;; # only recode tags from cp1251 to utf-8
-		r) RENAME=1;; # also rename files as $num - $title
-		O) RENAMEONLY=1;; # only rename files
-		S) TRANSLITONLY=1;; # only transliterate ID3 tags (now works with mp3 only)
-		T) _template=$OPTARG;;
-		A) ASKTITLE=1;; # ask for title for each file
-		n) _num=$OPTARG;; # number of file
-		N) _totnum=$OPTARG;; # total number of files
-		a) _artist=$OPTARG;;
-		b) _album=$OPTARG;;
-		y) _year=$OPTARG;;
-		g) _genre=$OPTARG;;
-		t) _title=$OPTARG;;
-		i) SHOWINFO=1;; # only show existing tags
-		h) # help message {{{
+function help_message() { # {{{
 echo -e "NAME
 
 	$(basename $0) - tool for read/write tags and rename flac, ogg and mp3 files.
@@ -98,9 +80,27 @@ EXAMPLES
 AUTHOR
 	Akaky Chertyhansky (akakychert@gmail.com) " # | $PAGER
 exit 0
-#}}}
-		;;
+} # }}}
 
+#commandline options {{{
+while getopts "RrOST:An:N:a:b:y:g:t:ih" Option
+do
+	case $Option in
+		R) RECODEONLY=1;; # only recode tags from cp1251 to utf-8
+		r) RENAME=1;; # also rename files as $num - $title
+		O) RENAMEONLY=1;; # only rename files
+		S) TRANSLITONLY=1;; # only transliterate ID3 tags (now works with mp3 only)
+		T) _template=$OPTARG;;
+		A) ASKTITLE=1;; # ask for title for each file
+		n) _num=$OPTARG;; # number of file
+		N) _totnum=$OPTARG;; # total number of files
+		a) _artist=$OPTARG;;
+		b) _album=$OPTARG;;
+		y) _year=$OPTARG;;
+		g) _genre=$OPTARG;;
+		t) _title=$OPTARG;;
+		i) SHOWINFO=1;; # only show existing tags
+		h) help_message;;
 	esac
 done
 shift $(($OPTIND - 1)) #}}}
